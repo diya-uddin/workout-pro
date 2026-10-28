@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Fitness Tracker & Routine</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .timer-pulse {
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-orange-500 selection:text-white relative">
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm w-full px-4"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-3 shadow-md">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-xl shadow-lg shadow-orange-500/20">
+                    <i data-lucide="dumbbell" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Workout Pro</h1>
+                    <p class="text-xs text-orange-400 font-medium">Personal Fitness & Routine</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="btn-settings-modal" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="ตั้งค่าระบบ / Google Sheets">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+                <button id="btn-notify-toggle" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition relative" title="การแจ้งเตือน">
+                    <i data-lucide="bell" class="w-5 h-5"></i>
+                    <span id="notify-badge" class="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full hidden"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-md w-full mx-auto p-4 flex flex-col justify-between space-y-4">
+
+        <!-- Top Overview Stats -->
+        <div class="grid grid-cols-3 gap-3">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center shadow-sm">
+                <div class="flex justify-center mb-1 text-orange-400">
+                    <i data-lucide="flame" class="w-5 h-5"></i>
+                </div>
+                <div class="text-xs text-slate-400 font-medium">ออกกำลังแล้ว</div>
+                <div class="text-xl font-bold text-white mt-0.5"><span id="stat-completed-days">0</span> <span class="text-xs font-normal text-slate-400">วัน</span></div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center shadow-sm">
+                <div class="flex justify-center mb-1 text-amber-400">
+                    <i data-lucide="calendar" class="w-5 h-5"></i>
+                </div>
+                <div class="text-xs text-slate-400 font-medium">วันปัจจุบัน</div>
+                <div class="text-sm font-bold text-amber-300 mt-1 truncate" id="stat-current-day">วันที่ 1</div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center shadow-sm">
+                <div class="flex justify-center mb-1 text-emerald-400">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                </div>
+                <div class="text-xs text-slate-400 font-medium">สถานะ Apps Script</div>
+                <div class="text-xs font-semibold mt-1" id="stat-gas-status">
+                    <span class="inline-block px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">ไม่ได้เชื่อม</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Day Selector Tabs -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-2">
+            <div class="flex space-x-1 overflow-x-auto custom-scrollbar pb-1 text-xs">
+                <button class="day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-orange-600 text-white shadow" data-day="1">วัน 1: แขน</button>
+                <button class="day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-slate-800 text-slate-300 hover:bg-slate-700" data-day="2">วัน 2: ท้อง</button>
+                <button class="day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-slate-800 text-slate-300 hover:bg-slate-700" data-day="3">วัน 3: ขา</button>
+                <button class="day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-slate-800 text-slate-300 hover:bg-slate-700" data-day="4">วัน 4: พัก</button>
+                <button class="day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-slate-800 text-slate-300 hover:bg-slate-700" data-day="5">วัน 5: บาสความเร็ว</button>
+                <button class="day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-slate-800 text-slate-300 hover:bg-slate-700" data-day="6">วัน 6: ไหล่/หลัง</button>
+                <button class="day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-slate-800 text-slate-300 hover:bg-slate-700" data-day="7">วัน 7: ทักษะบาส</button>
+            </div>
+        </div>
+
+        <!-- Dynamic Content View Area -->
+        <div id="view-container" class="flex-1 flex flex-col justify-between">
+            <!-- Screen 1: Pre-workout Overview (Default) -->
+            <div id="screen-preworkout" class="space-y-4">
+                <div class="bg-gradient-to-br from-slate-900 to-slate-900/80 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 text-slate-800/30 pointer-events-none">
+                        <i data-lucide="dumbbell" class="w-36 h-36"></i>
+                    </div>
+                    
+                    <div class="flex items-center justify-between mb-3">
+                        <span id="pre-day-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                            วันที่ 1
+                        </span>
+                        <div class="flex items-center space-x-1 text-xs text-slate-400">
+                            <i data-lucide="clock" class="w-3.5 h-3.5 text-orange-400"></i>
+                            <span>ประมาณ 30-45 นาที</span>
+                        </div>
+                    </div>
+
+                    <h2 id="pre-day-title" class="text-xl font-bold text-white mb-1">วันที่ 1 — แขน</h2>
+                    <p id="pre-day-desc" class="text-xs text-slate-400 mb-4">ฝึกกล้ามเนื้อแขน (Biceps & Triceps) เพิ่มความแข็งแรงและกระชับ</p>
+
+                    <!-- Rest Settings Config inside Pre-workout -->
+                    <div class="grid grid-cols-2 gap-3 mb-4 bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
+                        <div>
+                            <label class="text-[11px] font-medium text-slate-400 block mb-1">พักระหว่างท่า (วินาที)</label>
+                            <input type="number" id="input-rest-exercise" value="60" min="10" max="300" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-sm font-semibold text-center text-orange-400 focus:outline-none focus:border-orange-500">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-medium text-slate-400 block mb-1">พักระหว่างเซต (วินาที)</label>
+                            <input type="number" id="input-rest-set" value="120" min="10" max="600" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-sm font-semibold text-center text-amber-400 focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+
+                    <!-- Exercises List Preview -->
+                    <div class="space-y-2 mb-4">
+                        <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                            <span>รายการท่าที่จะฝึกวันนี้</span>
+                            <span id="pre-exercise-count" class="text-orange-400 font-bold">4 ท่า</span>
+                        </h3>
+                        <div id="pre-exercise-list" class="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+                            <!-- Items injected via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="pt-2 flex space-x-2">
+                        <button id="btn-start-workout" class="flex-1 py-3.5 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-600/30 flex items-center justify-center space-x-2 transition transform active:scale-95">
+                            <i data-lucide="play-circle" class="w-5 h-5"></i>
+                            <span>ยืนยันและเริ่มออกกำลังกาย</span>
+                        </button>
+                        <button id="btn-skip-today" class="py-3.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-2xl border border-slate-700 transition flex items-center space-x-1" title="วันนี้ไม่ได้ออกกำลังกาย">
+                            <i data-lucide="x-circle" class="w-4 h-4 text-rose-400"></i>
+                            <span>ไม่ออกกำลังกาย</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screen 2: Active Workout Execution -->
+            <div id="screen-active-workout" class="hidden space-y-4">
+                <!-- Top Progress Bar -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-md">
+                    <div class="flex justify-between items-center text-xs font-semibold mb-2">
+                        <span class="text-slate-400 flex items-center space-x-1">
+                            <i data-lucide="repeat" class="w-3.5 h-3.5 text-amber-400"></i>
+                            <span>เซตที่ <strong id="active-current-set" class="text-white font-bold text-sm">1</strong>/<span id="active-total-sets">3</span></span>
+                        </span>
+                        <span id="active-set-badge" class="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">
+                            กำลังเล่น
+                        </span>
+                        <span class="text-slate-400 flex items-center space-x-1">
+                            <i data-lucide="list-checks" class="w-3.5 h-3.5 text-orange-400"></i>
+                            <span>ท่าที่ <strong id="active-current-ex-num" class="text-white font-bold text-sm">1</strong>/<span id="active-total-ex-num">4</span></span>
+                        </span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div id="workout-progress-bar" class="bg-gradient-to-r from-orange-500 to-amber-400 h-2 rounded-full transition-all duration-300" style="width: 25%"></div>
+                    </div>
+                </div>
+
+                <!-- Exercise Detail Card -->
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl relative">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="ex-target-muscle" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-orange-400 border border-slate-700">
+                            ฝึกกล้ามหน้าแขน (Biceps)
+                        </span>
+                        <span id="ex-reps-count" class="text-sm font-bold text-amber-400 bg-amber-400/10 px-3 py-1 rounded-xl border border-amber-400/20">
+                            3 เซต × 8–12 ครั้ง
+                        </span>
+                    </div>
+
+                    <h2 id="ex-name" class="text-2xl font-bold text-white mb-3 mt-1">Dumbbell Curl</h2>
+
+                    <!-- Instructions List -->
+                    <div class="bg-slate-950/80 rounded-2xl p-4 border border-slate-800/80 mb-5">
+                        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center space-x-1">
+                            <i data-lucide="info" class="w-3.5 h-3.5 text-orange-400"></i>
+                            <span>วิธีทำและเทคนิคการเล่น</span>
+                        </h4>
+                        <ul id="ex-instructions" class="space-y-2 text-xs text-slate-300 custom-scrollbar max-h-48 overflow-y-auto pr-1">
+                            <!-- Bullet points injected via JS -->
+                        </ul>
+                    </div>
+
+                    <!-- Action Button: Finished -->
+                    <button id="btn-exercise-done" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition transform active:scale-95">
+                        <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                        <span>เสร็จสิ้น (ไปพัก)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Screen 3: Rest Timer View Overlay -->
+            <div id="screen-rest-timer" class="hidden flex-1 flex flex-col items-center justify-center space-y-6 py-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full text-center shadow-2xl relative overflow-hidden">
+                    <div class="text-xs font-semibold tracking-widest text-orange-400 uppercase mb-2" id="rest-type-label">
+                        เวลาพักระหว่างท่า
+                    </div>
+                    <p class="text-xs text-slate-400 mb-6" id="rest-next-up">ท่าถัดไป: Hammer Curl</p>
+
+                    <!-- Large Timer Display -->
+                    <div class="relative w-48 h-48 mx-auto flex items-center justify-center mb-6">
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle cx="96" cy="96" r="84" stroke="currentColor" stroke-width="12" class="text-slate-800" fill="transparent" />
+                            <circle id="timer-progress-circle" cx="96" cy="96" r="84" stroke="currentColor" stroke-width="12" class="text-orange-500 transition-all duration-1000 ease-linear" stroke-dasharray="527" stroke-dashoffset="0" stroke-linecap="round" fill="transparent" />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span id="timer-seconds" class="text-5xl font-black text-white tracking-tight">60</span>
+                            <span class="text-xs text-slate-400 font-medium mt-1">วินาที</span>
+                        </div>
+                    </div>
+
+                    <!-- Timer Quick Control Buttons -->
+                    <div class="flex items-center justify-center space-x-3 mb-4">
+                        <button id="btn-add-10s" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition">
+                            +10 วินาที
+                        </button>
+                        <button id="btn-skip-rest" class="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-xl shadow-md transition">
+                            ข้ามเวลาพักทันที
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screen 4: Workout Summary / Completed Screen -->
+            <div id="screen-completed" class="hidden space-y-4">
+                <div class="bg-gradient-to-br from-slate-900 to-emerald-950/40 border border-emerald-500/30 rounded-3xl p-6 text-center shadow-xl">
+                    <div class="w-20 h-20 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
+                        <i data-lucide="trophy" class="w-10 h-10 text-emerald-400"></i>
+                    </div>
+                    
+                    <h2 class="text-2xl font-bold text-white mb-1">ยอดเยี่ยมมาก!</h2>
+                    <p class="text-xs text-emerald-400 mb-4 font-medium">คุณทำตามตารางออกกำลังกายของวันนี้สำเร็จแล้ว</p>
+
+                    <div class="grid grid-cols-2 gap-3 mb-5">
+                        <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-2xl">
+                            <div class="text-[11px] text-slate-400">เวลารวมที่ใช้</div>
+                            <div class="text-lg font-bold text-white mt-0.5" id="sum-total-time">18 นาที</div>
+                        </div>
+                        <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-2xl">
+                            <div class="text-[11px] text-slate-400">เซตทั้งหมดที่เล่น</div>
+                            <div class="text-lg font-bold text-amber-400 mt-0.5" id="sum-total-sets">12 เซต</div>
+                        </div>
+                    </div>
+
+                    <div id="sync-status-box" class="p-3 bg-slate-950 rounded-2xl border border-slate-800 text-xs text-slate-400 mb-4 flex items-center justify-center space-x-2">
+                        <i data-lucide="loader" class="w-4 h-4 animate-spin text-orange-400" id="sync-spinner"></i>
+                        <span id="sync-status-text">กำลังบันทึกข้อมูลไปยัง Google Sheets...</span>
+                    </div>
+
+                    <button id="btn-finish-summary" class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-2xl border border-slate-700 transition">
+                        กลับสู่หน้าหลัก
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Skip Reason Form -->
+    <div id="modal-skip" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center space-x-2 text-rose-400">
+                    <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                    <h3 class="font-bold text-white text-base">บันทึกเหตุผลการเว้นฝึก</h3>
+                </div>
+                <button id="btn-close-skip-modal" class="text-slate-400 hover:text-white p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-slate-400 mb-4">
+                วันนี้คุณไม่ได้ออกกำลังกาย กรุณาระบุเหตุผลเพื่อบันทึกลงใน Google Sheets และช่วยปรับปรุงวินัยในอนาคต:
+            </p>
+
+            <form id="form-skip-reason" class="space-y-3">
+                <textarea id="textarea-skip-reason" rows="3" required placeholder="เช่น ป่วย, ติดภารกิจด่วน, ทำงานเลิกด่วน, พักผ่อนไม่เพียงพอ..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 custom-scrollbar"></textarea>
+                
+                <div class="flex space-x-2 pt-2">
+                    <button type="button" id="btn-cancel-skip" class="flex-1 py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700 transition">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-md transition">
+                        บันทึกเหตุผล
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Settings & Apps Script Webhook Config -->
+    <div id="modal-settings" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center space-x-2 text-orange-400">
+                    <i data-lucide="sliders" class="w-5 h-5"></i>
+                    <h3 class="font-bold text-white text-base">ตั้งค่าระบบ & Google Sheets</h3>
+                </div>
+                <button id="btn-close-settings" class="text-slate-400 hover:text-white p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1">Google Apps Script Web App URL</label>
+                    <input type="url" id="input-gas-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500">
+                    <p class="text-[10px] text-slate-500 mt-1">วาง Web App URL ที่ได้จากการ Deploy ใน Google Apps Script เพื่อบันทึกข้อมูลลง Google Sheets</p>
+                </div>
+
+                <div class="border-t border-slate-800 pt-3">
+                    <label class="text-xs font-semibold text-slate-300 block mb-1">เวลาแจ้งเตือนออกกำลังกายประจำวัน</label>
+                    <input type="time" id="input-notify-time" value="17:00" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-orange-500">
+                    <p class="text-[10px] text-slate-500 mt-1">ระบบจะส่ง Browser Push Notification ตามเวลาที่ตั้งไว้</p>
+                </div>
+
+                <div class="pt-2 flex space-x-2">
+                    <button id="btn-save-settings" class="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-xl shadow-md transition">
+                        บันทึกการตั้งค่า
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // -------------------------------------------------------------
+        // Toast Notification System
+        // -------------------------------------------------------------
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgStyle = 'bg-slate-800 text-slate-200 border-slate-700';
+            let icon = 'info';
+
+            if (type === 'success') {
+                bgStyle = 'bg-emerald-900/90 text-emerald-200 border-emerald-700';
+                icon = 'check-circle-2';
+            } else if (type === 'warning') {
+                bgStyle = 'bg-amber-900/90 text-amber-200 border-amber-700';
+                icon = 'alert-triangle';
+            } else if (type === 'error') {
+                bgStyle = 'bg-rose-900/90 text-rose-200 border-rose-700';
+                icon = 'alert-circle';
+            }
+
+            toast.className = `p-3.5 rounded-2xl border shadow-xl flex items-center space-x-3 pointer-events-auto transition-all duration-300 transform translate-y-2 ${bgStyle}`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5 flex-shrink-0"></i>
+                <span class="text-xs font-medium flex-1">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // -------------------------------------------------------------
+        // Workout Data Schema (7 Days Program as requested by user)
+        // -------------------------------------------------------------
+        const WORKOUT_PROGRAM = {
+            1: {
+                title: "วันที่ 1 — แขน",
+                category: "Arms Focus",
+                desc: "เน้นกล้ามเนื้อหน้าแขน (Biceps) และหลังแขน (Triceps)",
+                isRest: false,
+                exercises: [
+                    {
+                        name: "Dumbbell Curl",
+                        sets: 3,
+                        reps: "8–12 ครั้ง",
+                        muscle: "ฝึกกล้ามหน้าแขน (Biceps)",
+                        steps: [
+                            "ยืนตัวตรง ถือดัมเบลไว้ข้างลำตัว ฝ่ามือหันไปข้างหน้า",
+                            "งอข้อศอก ยกดัมเบลขึ้นเข้าหาไหล่",
+                            "เกร็งหน้าแขนชั่วครู่ แล้วค่อย ๆ ลดลง",
+                            "ห้ามเหวี่ยงตัวหรือโยกหลังช่วยยก"
+                        ]
+                    },
+                    {
+                        name: "Hammer Curl",
+                        sets: 2,
+                        reps: "10–12 ครั้ง",
+                        muscle: "ฝึกหน้าแขนและกล้ามเนื้อปลายแขน",
+                        steps: [
+                            "ถือดัมเบลโดยหันฝ่ามือเข้าหาลำตัว เหมือนกำลังถือค้อน",
+                            "งอข้อศอกยกดัมเบลขึ้น โดยรักษาข้อมือให้ตรง",
+                            "ลดลงช้า ๆ ไม่ปล่อยให้ดัมเบลตก",
+                            "พยายามไม่ขยับข้อศอกไปข้างหน้ามากเกินไป"
+                        ]
+                    },
+                    {
+                        name: "Overhead Triceps Extension",
+                        sets: 3,
+                        reps: "8–12 ครั้ง",
+                        muscle: "ฝึกหลังแขน (Triceps)",
+                        steps: [
+                            "ใช้ดัมเบลที่จับได้มั่นคง ถือไว้เหนือศีรษะด้วยสองมือ",
+                            "งอข้อศอก ลดดัมเบลลงด้านหลังศีรษะ",
+                            "เหยียดข้อศอกกลับขึ้นจนแขนเกือบตรง",
+                            "รักษาต้นแขนให้อยู่ใกล้ศีรษะ และอย่าแอ่นหลัง"
+                        ]
+                    },
+                    {
+                        name: "Diamond Push-up",
+                        sets: 2,
+                        reps: "6–10 ครั้ง",
+                        muscle: "เน้นหลังแขนและอก",
+                        steps: [
+                            "ตั้งท่าวิดพื้น วางมือใกล้กันใต้หน้าอก โดยนิ้วโป้งกับนิ้วชี้เกือบแตะกัน",
+                            "เกร็งหน้าท้องและก้นให้ลำตัวตรง",
+                            "ลดหน้าอกลงอย่างควบคุม โดยให้ข้อศอกงอไปด้านหลังเล็กน้อย",
+                            "ดันตัวกลับขึ้น หากยากเกินไปให้วางเข่าบนพื้น"
+                        ]
+                    }
+                ]
+            },
+            2: {
+                title: "วันที่ 2 — หน้าท้องและแกนกลางลำตัว",
+                category: "Core & Abs",
+                desc: "สร้างความแข็งแรงของแกนกลางลำตัว ซิกแพค และการทรงตัว",
+                isRest: false,
+                exercises: [
+                    {
+                        name: "Plank",
+                        sets: 3,
+                        reps: "30–60 วินาที",
+                        muscle: "เกร็งหน้าท้องและแกนกลางลำตัว",
+                        steps: [
+                            "วางข้อศอกใต้หัวไหล่และเหยียดขาไปด้านหลัง",
+                            "เกร็งหน้าท้องและก้นให้ลำตัวเป็นเส้นตรง",
+                            "อย่าปล่อยสะโพกตกหรือยกก้นสูง",
+                            "หายใจตามปกติ ไม่กลั้นหายใจ"
+                        ]
+                    },
+                    {
+                        name: "Side Plank",
+                        sets: 2,
+                        reps: "20–30 วินาทีต่อข้าง",
+                        muscle: "เกร็งด้านข้างของหน้าท้อง (Obliques)",
+                        steps: [
+                            "นอนตะแคง ใช้ข้อศอกข้างหนึ่งยันพื้น",
+                            "ยกสะโพกขึ้นให้ไหล่ สะโพก และข้อเท้าอยู่ในแนวเดียวกัน",
+                            "เกร็งด้านข้างของหน้าท้อง",
+                            "ทำครบทั้งสองข้าง ถ้ายากให้เริ่มจากงอเข่า"
+                        ]
+                    },
+                    {
+                        name: "Bicycle Crunch",
+                        sets: 3,
+                        reps: "30 วินาที",
+                        muscle: "ฝึกกล้ามท้องด้านบน ด้านล่าง และด้านข้าง",
+                        steps: [
+                            "นอนหงาย ยกขาขึ้นและงอเข่า",
+                            "ยกไหล่ขึ้นเล็กน้อย มือแตะบริเวณข้างศีรษะโดยไม่ดึงคอ",
+                            "บิดลำตัวนำศอกเข้าหาเข่าฝั่งตรงข้าม พร้อมเหยียดขาอีกข้าง",
+                            "สลับซ้ายขวาช้า ๆ อย่ารีบจนใช้แรงเหวี่ยง"
+                        ]
+                    },
+                    {
+                        name: "Leg Raise",
+                        sets: 3,
+                        reps: "8–12 ครั้ง",
+                        muscle: "ฝึกกล้ามท้องส่วนล่าง (Lower Abs)",
+                        steps: [
+                            "นอนหงาย วางแขนข้างลำตัว",
+                            "ยกขาทั้งสองข้างขึ้นโดยพยายามให้เข่าเหยียด",
+                            "ลดขาลงช้า ๆ เท่าที่ควบคุมหลังส่วนล่างไม่ให้แอ่นได้",
+                            "หากหลังเริ่มแอ่น ให้ลดระยะการเคลื่อนไหวหรืองอเข่า"
+                        ]
+                    },
+                    {
+                        name: "Sit-up",
+                        sets: 2,
+                        reps: "8–12 ครั้ง",
+                        muscle: "ฝึกกล้ามเนื้อหน้าท้องหลัก",
+                        steps: [
+                            "นอนหงาย งอเข่าและวางเท้าบนพื้น",
+                            "ยกลำตัวขึ้นโดยใช้กล้ามท้อง",
+                            "ค่อย ๆ ลดตัวลง ไม่ทิ้งหลังลงกระแทกพื้น",
+                            "หากปวดหลังหรือรู้สึกตึงคอ ให้เปลี่ยนเป็น Crunch ซึ่งยกเพียงหัวไหล่ขึ้นจากพื้น"
+                        ]
+                    }
+                ]
+            },
+            3: {
+                title: "วันที่ 3 — ขาและพลังระเบิด",
+                category: "Legs & Explosive Power",
+                desc: "เพิ่มพลังต้นขา น่อง และแรงกระโดดระเบิดพลัง",
+                isRest: false,
+                exercises: [
+                    {
+                        name: "Squat",
+                        sets: 3,
+                        reps: "10–15 ครั้ง",
+                        muscle: "ฝึกกล้ามเนื้อต้นขาด้านหน้าและก้น",
+                        steps: [
+                            "ยืนแยกเท้าประมาณความกว้างหัวไหล่",
+                            "ดันสะโพกไปด้านหลังพร้อมงอเข่า ราวกับกำลังนั่งเก้าอี้",
+                            "รักษาส้นเท้าติดพื้นและเข่าให้ไปทิศทางเดียวกับปลายเท้า",
+                            "ดันพื้นกลับขึ้นมายืนโดยไม่แอ่นหลัง"
+                        ]
+                    },
+                    {
+                        name: "Jump Squat",
+                        sets: 3,
+                        reps: "5–8 ครั้ง",
+                        muscle: "เพิ่มพลังระเบิดการกระโดด (Explosive)",
+                        steps: [
+                            "ย่อตัวเหมือน Squat",
+                            "แกว่งแขนและกระโดดขึ้นด้วยแรงจากขา",
+                            "ลงพื้นอย่างนุ่มนวลด้วยเข่างอเล็กน้อย",
+                            "ตั้งหลักก่อนกระโดดครั้งถัดไป ไม่จำเป็นต้องกระโดดสูงสุดทุกครั้ง"
+                        ]
+                    },
+                    {
+                        name: "Calf Raise",
+                        sets: 3,
+                        reps: "15–20 ครั้ง",
+                        muscle: "ฝึกน่อง (Calves)",
+                        steps: [
+                            "ยืนเท้าห่างกันเล็กน้อย จับผนังเพื่อช่วยทรงตัว",
+                            "ยกส้นเท้าขึ้นโดยถ่ายน้ำหนักไปยังปลายเท้า",
+                            "เกร็งน่องชั่วครู่",
+                            "ลดส้นลงช้า ๆ ไม่เด้งตัวขึ้นลงเร็ว ๆ"
+                        ]
+                    },
+                    {
+                        name: "Glute Bridge",
+                        sets: 3,
+                        reps: "12–15 ครั้ง",
+                        muscle: "ฝึกกล้ามก้นและหลังขา (Glutes & Hamstrings)",
+                        steps: [
+                            "นอนหงาย งอเข่า วางเท้าบนพื้น",
+                            "เกร็งก้นแล้วยกสะโพกขึ้น",
+                            "หยุดเมื่อไหล่ สะโพก และเข่าเกือบเป็นเส้นตรง",
+                            "ลดสะโพกลงช้า ๆ ไม่แอ่นหลังเพื่อยกให้สูงเกินไป"
+                        ]
+                    },
+                    {
+                        name: "Wall Sit",
+                        sets: 2,
+                        reps: "30–60 วินาที",
+                        muscle: "ฝึกความอดทนกล้ามเนื้อต้นขา",
+                        steps: [
+                            "พิงหลังกับกำแพงและก้าวเท้าออกมาด้านหน้า",
+                            "เลื่อนตัวลงจนเข่างอในระดับที่ทำได้สบาย",
+                            "วางน้ำหนักบนเท้าทั้งสองข้าง",
+                            "ค้างไว้โดยไม่ใช้มือกดต้นขาเพื่อช่วย"
+                        ]
+                    }
+                ]
+            },
+            4: {
+                title: "วันที่ 4 — พัก (Rest Day)",
+                category: "Recovery Day",
+                desc: "ฟื้นฟูกล้ามเนื้อ พักผ่อน ซ่อมแซมส่วนที่สึกหรอ",
+                isRest: true,
+                exercises: []
+            },
+            5: {
+                title: "วันที่ 5 — ความเร็วและความคล่องตัวสำหรับบาสเกตบอล",
+                category: "Basketball Speed & Agility",
+                desc: "สร้างสปีด การเปลี่ยนทิศทาง และความฟิตสำหรับกีฬาบาสเกตบอล",
+                isRest: false,
+                exercises: [
+                    {
+                        name: "Jump Rope",
+                        sets: 3,
+                        reps: "3 รอบ × 1 นาที",
+                        muscle: "ฟิตเนสหัวใจ คาร์ดิโอ และข้อเท้า",
+                        steps: [
+                            "ถือเชือกไว้ข้างลำตัวแล้วหมุนเชือกผ่านเหนือศีรษะลงมาด้านหน้า",
+                            "กระโดดต่ำ ๆ ด้วยปลายเท้าให้เชือกผ่านใต้เท้า",
+                            "ใช้ข้อมือหมุนเชือกมากกว่าเหวี่ยงแขนทั้งสองข้าง",
+                            "พักระหว่างรอบประมาณ 30–60 วินาที"
+                        ]
+                    },
+                    {
+                        name: "Interval Run",
+                        sets: 1,
+                        reps: "รวม 6–10 นาที",
+                        muscle: "ฝึกระบบสปรินต์สลับพัก (Interval Cardio)",
+                        steps: [
+                            "วิ่งเร็วระดับที่ยังควบคุมท่าทางได้ประมาณ 15–20 วินาที",
+                            "เดินหรือวิ่งช้า 40–60 วินาที",
+                            "ทำซ้ำตามเวลาที่กำหนด",
+                            "เริ่มด้วยความเร็วปานกลาง ไม่ต้องสปรินต์สุดแรงทุกครั้ง"
+                        ]
+                    },
+                    {
+                        name: "Forward/Backward Movement",
+                        sets: 1,
+                        reps: "4–6 รอบ",
+                        muscle: "การเคลื่อนที่เดินหน้าและถอยหลัง",
+                        steps: [
+                            "ตั้งท่าเตรียมพร้อม เข่างอเล็กน้อยและลำตัวเอนไปข้างหน้าเล็กน้อย",
+                            "เคลื่อนที่ไปข้างหน้าอย่างรวดเร็ว",
+                            "เปลี่ยนเป็นถอยหลังโดยยังรักษาสมดุล",
+                            "อย่าไขว้เท้าจนเสียหลัก และให้ความสำคัญกับการหยุดอย่างปลอดภัย"
+                        ]
+                    },
+                    {
+                        name: "Lateral Shuffle",
+                        sets: 1,
+                        reps: "4–6 รอบ",
+                        muscle: "ฝึกการสไลด์ป้องกัน (Defensive Shuffle)",
+                        steps: [
+                            "ย่อเข่าในท่าเตรียมป้องกัน",
+                            "ก้าวสไลด์ไปด้านข้างด้วยเท้าข้างที่นำ",
+                            "ให้เท้าอีกข้างตามมาโดยไม่ไขว้กัน",
+                            "เคลื่อนที่กลับอีกด้านและรักษาระดับลำตัวให้คงที่",
+                            "พักระหว่างรอบให้หายเหนื่อยพอสมควร ถ้าพื้นลื่นหรือมีอาการเจ็บเข่า ให้หยุดท่าที่เสี่ยงก่อน"
+                        ]
+                    }
+                ]
+            },
+            6: {
+                title: "วันที่ 6 — ไหล่ หลัง และอก (จงกอน Style)",
+                category: "Upper Body Hypertrophy",
+                desc: "สร้างรูปร่างส่วนบน ลำตัวกว้าง ไหล่หนา อกกระชับ",
+                isRest: false,
+                exercises: [
+                    {
+                        name: "Dumbbell Lateral Raise",
+                        sets: 3,
+                        reps: "10–15 ครั้ง",
+                        muscle: "เน้นกล้ามไหล่ด้านข้าง (Side Delts)",
+                        steps: [
+                            "ยืนตัวตรง ถือขวดน้ำหรือดัมเบลไว้ข้างลำตัว",
+                            "ยกแขนออกด้านข้างจนประมาณระดับหัวไหล่",
+                            "งอข้อศอกเล็กน้อยและลดแขนลงช้า ๆ",
+                            "หากหนักเกินไป ให้ใช้น้ำหนักที่เบากว่า อย่าเหวี่ยงตัวเพื่อยกน้ำหนัก"
+                        ]
+                    },
+                    {
+                        name: "Pike Push-up",
+                        sets: 3,
+                        reps: "5–10 ครั้ง",
+                        muscle: "เน้นไหล่และกล้ามเนื้อหลังแขน",
+                        steps: [
+                            "ตั้งท่าวิดพื้นแล้วยกสะโพกขึ้น ให้ลำตัวคล้ายตัว V คว่ำ",
+                            "วางมือกว้างประมาณหัวไหล่",
+                            "งอข้อศอก ลดศีรษะลงระหว่างมือเล็กน้อย",
+                            "ดันพื้นกลับขึ้นโดยไม่ปล่อยให้ศีรษะกระแทกพื้น หากยากให้ลดระยะการลง"
+                        ]
+                    },
+                    {
+                        name: "One-arm Dumbbell Row",
+                        sets: 3,
+                        reps: "8–15 ครั้งต่อข้าง",
+                        muscle: "เน้นกล้ามหลัง ช่วยสร้างความหนาของลำตัว",
+                        steps: [
+                            "ใช้มือข้างหนึ่งยันบนเก้าอี้ที่มั่นคง โน้มตัวไปข้างหน้าโดยหลังเป็นแนวตรง",
+                            "ถือดัมเบลด้วยมืออีกข้าง ปล่อยแขนลง",
+                            "ดึงศอกขึ้นไปทางสะโพก โดยให้ดัมเบลเข้าใกล้ลำตัว",
+                            "บีบกล้ามหลังเล็กน้อยแล้วลดแขนลงช้า ๆ ทำทั้งสองข้าง"
+                        ]
+                    },
+                    {
+                        name: "Prone Reverse Snow Angel",
+                        sets: 2,
+                        reps: "10–15 ครั้ง",
+                        muscle: "เน้นกล้ามหลังส่วนบนและการควบคุมสะบัก",
+                        steps: [
+                            "นอนคว่ำบนพื้น ยืดแขนไปเหนือศีรษะ",
+                            "ยกแขนขึ้นจากพื้นเพียงเล็กน้อยโดยไม่แอ่นหลังมาก",
+                            "กวาดแขนออกด้านข้างลงมาทางสะโพก คล้ายการวาดรูปนางฟ้าบนหิมะ",
+                            "กวาดกลับตำแหน่งเดิมอย่างช้า ๆ ไม่ต้องถือดัมเบล"
+                        ]
+                    },
+                    {
+                        name: "Standard Push-up",
+                        sets: 3,
+                        reps: "8–15 ครั้ง",
+                        muscle: "เพิ่มการฝึกกล้ามอกและหลังแขน",
+                        steps: [
+                            "วางมือกว้างกว่าหัวไหล่เล็กน้อย",
+                            "เกร็งหน้าท้องและเหยียดลำตัวให้ตรง",
+                            "ลดหน้าอกลงใกล้พื้น โดยข้อศอกทำมุมเฉียงกับลำตัว ไม่กางออก 90 องศา",
+                            "ดันตัวกลับขึ้น หากยังทำไม่ไหวให้วางมือบนพื้นผิวที่สูงและมั่นคง"
+                        ]
+                    }
+                ]
+            },
+            7: {
+                title: "วันที่ 7 — ทักษะบาสเกตบอลและการควบคุมร่างกาย",
+                category: "Basketball Skills & Mobility",
+                desc: "ฝึกการเลี้ยงบอล ฟุตเวิร์ค สมดุลร่างกาย และยืดกล้ามเนื้อ",
+                isRest: false,
+                exercises: [
+                    {
+                        name: "Stationary Dribbling",
+                        sets: 1,
+                        reps: "5–10 นาที",
+                        muscle: "การเลี้ยงบอลเฉพาะจุดและการใช้ปลายนิ้ว",
+                        steps: [
+                            "ย่อเข่าและก้มลำตัวเล็กน้อย",
+                            "เลี้ยงลูกด้วยมือขวาและซ้าย โดยใช้ปลายนิ้วควบคุมลูก",
+                            "ฝึกสลับมือหน้าเข่าและ Crossover",
+                            "ค่อย ๆ เพิ่มความเร็วเมื่อควบคุมลูกได้โดยไม่ต้องมองลูกตลอดเวลา"
+                        ]
+                    },
+                    {
+                        name: "Footwork, Stops and Pivots",
+                        sets: 1,
+                        reps: "5–10 นาที",
+                        muscle: "ฟุตเวิร์ค การหยุด Jump Stop และการหมุนตัว Pivot",
+                        steps: [
+                            "ฝึกก้าวเท้าแล้วหยุดด้วย Jump Stop หรือหยุดแบบสองจังหวะ",
+                            "เมื่อลงพื้น ให้ย่อเข่าและรักษาสมดุล",
+                            "เลือกเท้าหลักแล้วหมุนตัวโดยไม่ยกเท้าหลักผิดกติกา",
+                            "ฝึกทั้งหันหน้าเข้าหาห่วงและหันหลังบังบอล"
+                        ]
+                    },
+                    {
+                        name: "Single-leg Balance",
+                        sets: 2,
+                        reps: "30 วินาทีต่อข้าง",
+                        muscle: "การทรงตัวบนขาข้างเดียวและความมั่นคงข้อเท้า",
+                        steps: [
+                            "ยืนบนขาข้างเดียวใกล้ผนังเพื่อความปลอดภัย",
+                            "งอเข่าเล็กน้อยและรักษาสะโพกให้อยู่ในแนวสมดุล",
+                            "พยายามไม่ให้ข้อเท้าและเข่าแกว่งมาก",
+                            "สลับข้าง เมื่อเก่งขึ้นค่อยฝึกเอื้อมมือหรือขยับแขน"
+                        ]
+                    },
+                    {
+                        name: "Controlled Change of Direction",
+                        sets: 1,
+                        reps: "5 นาที",
+                        muscle: "การเปลี่ยนทิศทางอย่างปลอดภัย + ยืดกล้ามเนื้อ",
+                        steps: [
+                            "วิ่งเหยาะ ๆ ไปข้างหน้า",
+                            "ย่อตัวและลดความเร็วให้มั่นคงก่อนเปลี่ยนทิศ",
+                            "ดันพื้นด้วยขาที่มั่นคงเพื่อเคลื่อนที่ไปอีกด้าน",
+                            "เริ่มจากความเร็วต่ำก่อน อย่าหักเปลี่ยนทิศเต็มแรงจนควบคุมเข่าไม่ได้",
+                            "ปิดท้ายด้วยการยืดกล้ามเนื้อเบา ๆ ประมาณ 5 นาที โดยไม่ฝืนจนเจ็บ"
+                        ]
+                    }
+                ]
+            }
+        };
+
+        // -------------------------------------------------------------
+        // App State & Controllers
+        // -------------------------------------------------------------
+        let currentDayKey = 1;
+        let activeWorkoutState = {
+            dayKey: 1,
+            currentSetIndex: 1,
+            totalSets: 3,
+            currentExerciseIndex: 0,
+            startTime: null,
+            restTimeExerciseSec: 60,
+            restTimeSetSec: 120
+        };
+        let timerInterval = null;
+        let timerSecondsRemaining = 0;
+        let timerTotalDuration = 0;
+
+        // Sound synthesizer using Web Audio API
+        function playBeepSound(frequency = 880, duration = 0.2, type = 'sine') {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = frequency;
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+                setTimeout(() => osc.stop(), duration * 1000);
+            } catch (e) {
+                console.log('Audio Context error', e);
+            }
+        }
+
+        function triggerVibration() {
+            if ('vibrate' in navigator) {
+                navigator.vibrate([200, 100, 200, 100, 400]);
+            }
+        }
+
+        // Initialize UI Elements & Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadSettings();
+            renderStats();
+            selectDay(1);
+            setupEventListeners();
+            checkScheduledNotification();
+        });
+
+        function loadSettings() {
+            const gasUrl = localStorage.getItem('workout_gas_url') || '';
+            const notifyTime = localStorage.getItem('workout_notify_time') || '17:00';
+            const completedCount = localStorage.getItem('workout_completed_days') || '0';
+
+            document.getElementById('input-gas-url').value = gasUrl;
+            document.getElementById('input-notify-time').value = notifyTime;
+            document.getElementById('stat-completed-days').innerText = completedCount;
+
+            updateGasStatusBadge(gasUrl);
+        }
+
+        function updateGasStatusBadge(gasUrl) {
+            const badge = document.getElementById('stat-gas-status');
+            if (gasUrl && gasUrl.startsWith('https://script.google.com')) {
+                badge.innerHTML = `<span class="inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">เชื่อมต่อแล้ว</span>`;
+            } else {
+                badge.innerHTML = `<span class="inline-block px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">ไม่ได้เชื่อม</span>`;
+            }
+        }
+
+        function renderStats() {
+            const completedDays = localStorage.getItem('workout_completed_days') || '0';
+            document.getElementById('stat-completed-days').innerText = completedDays;
+        }
+
+        function selectDay(dayNum) {
+            currentDayKey = dayNum;
+            const program = WORKOUT_PROGRAM[dayNum];
+
+            // Update Tabs styling
+            document.querySelectorAll('.day-tab').forEach(tab => {
+                const tabDay = parseInt(tab.getAttribute('data-day'));
+                if (tabDay === dayNum) {
+                    tab.className = "day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-orange-600 text-white shadow";
+                } else {
+                    tab.className = "day-tab px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition bg-slate-800 text-slate-300 hover:bg-slate-700";
+                }
+            });
+
+            document.getElementById('stat-current-day').innerText = `วันที่ ${dayNum}`;
+            document.getElementById('pre-day-badge').innerText = `วันที่ ${dayNum}`;
+            document.getElementById('pre-day-title').innerText = program.title;
+            document.getElementById('pre-day-desc').innerText = program.desc;
+
+            const listContainer = document.getElementById('pre-exercise-list');
+            listContainer.innerHTML = '';
+
+            if (program.isRest) {
+                document.getElementById('pre-exercise-count').innerText = "วันพักผ่อน";
+                listContainer.innerHTML = `
+                    <div class="p-4 bg-slate-950/60 border border-slate-800 rounded-2xl text-center space-y-2">
+                        <div class="text-amber-400 font-bold text-sm">วันนี้ไม่ต้องฝึกเวท!</div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            วันนี้ไม่ต้องฝึกเวท ให้ร่างกายฟื้นตัว เดินเบา ๆ ได้หากรู้สึกสบาย นอนให้เพียงพอ และกินอาหารให้ครบถ้วน
+                        </p>
+                    </div>
+                `;
+                document.getElementById('btn-start-workout').innerHTML = `
+                    <i data-lucide="coffee" class="w-5 h-5"></i>
+                    <span>บันทึกว่าพักผ่อนแล้ววันนี้</span>
+                `;
+            } else {
+                document.getElementById('pre-exercise-count').innerText = `${program.exercises.length} ท่า`;
+                document.getElementById('btn-start-workout').innerHTML = `
+                    <i data-lucide="play-circle" class="w-5 h-5"></i>
+                    <span>ยืนยันและเริ่มออกกำลังกาย</span>
+                `;
+
+                program.exercises.forEach((ex, idx) => {
+                    const item = document.createElement('div');
+                    item.className = "p-2.5 bg-slate-950/70 border border-slate-800 rounded-xl flex items-center justify-between";
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-2.5">
+                            <span class="w-6 h-6 rounded-lg bg-orange-500/20 text-orange-400 font-bold text-xs flex items-center justify-center">${idx + 1}</span>
+                            <div>
+                                <div class="text-xs font-bold text-white">${ex.name}</div>
+                                <div class="text-[10px] text-slate-400">${ex.muscle}</div>
+                            </div>
+                        </div>
+                        <div class="text-xs font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20">
+                            ${ex.reps}
+                        </div>
+                    `;
+                    listContainer.appendChild(item);
+                });
+            }
+            lucide.createIcons();
+            showScreen('screen-preworkout');
+        }
+
+        function showScreen(screenId) {
+            ['screen-preworkout', 'screen-active-workout', 'screen-rest-timer', 'screen-completed'].forEach(id => {
+                const el = document.getElementById(id);
+                if (id === screenId) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            // Day tabs
+            document.querySelectorAll('.day-tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    const day = parseInt(e.currentTarget.getAttribute('data-day'));
+                    selectDay(day);
+                });
+            });
+
+            // Start workout / Confirm
+            document.getElementById('btn-start-workout').addEventListener('click', () => {
+                const program = WORKOUT_PROGRAM[currentDayKey];
+                if (program.isRest) {
+                    logRestDayToSheet();
+                } else {
+                    startWorkoutExecution();
+                }
+            });
+
+            // Skip workout button
+            document.getElementById('btn-skip-today').addEventListener('click', () => {
+                document.getElementById('modal-skip').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-close-skip-modal').addEventListener('click', () => {
+                document.getElementById('modal-skip').classList.add('hidden');
+            });
+            document.getElementById('btn-cancel-skip').addEventListener('click', () => {
+                document.getElementById('modal-skip').classList.add('hidden');
+            });
+
+            // Skip reason form submit
+            document.getElementById('form-skip-reason').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const reason = document.getElementById('textarea-skip-reason').value.trim();
+                if (reason) {
+                    sendDataToGoogleSheets('SKIP', {
+                        day: currentDayKey,
+                        dayTitle: WORKOUT_PROGRAM[currentDayKey].title,
+                        reason: reason
+                    });
+                    document.getElementById('modal-skip').classList.add('hidden');
+                    document.getElementById('textarea-skip-reason').value = '';
+                    showToast('บันทึกเหตุผลการเว้นออกกำลังกายเรียบร้อยแล้ว', 'warning');
+                }
+            });
+
+            // Settings modal
+            document.getElementById('btn-settings-modal').addEventListener('click', () => {
+                document.getElementById('modal-settings').classList.remove('hidden');
+            });
+            document.getElementById('btn-close-settings').addEventListener('click', () => {
+                document.getElementById('modal-settings').classList.add('hidden');
+            });
+
+            // Save settings
+            document.getElementById('btn-save-settings').addEventListener('click', () => {
+                const url = document.getElementById('input-gas-url').value.trim();
+                const notifyTime = document.getElementById('input-notify-time').value;
+
+                localStorage.setItem('workout_gas_url', url);
+                localStorage.setItem('workout_notify_time', notifyTime);
+
+                updateGasStatusBadge(url);
+                document.getElementById('modal-settings').classList.add('hidden');
+                showToast('บันทึกการตั้งค่า Google Sheets เรียบร้อยแล้ว', 'success');
+                setupNotificationPermission();
+            });
+
+            // Notification Bell button
+            document.getElementById('btn-notify-toggle').addEventListener('click', () => {
+                setupNotificationPermission();
+            });
+
+            // Exercise Done button
+            document.getElementById('btn-exercise-done').addEventListener('click', () => {
+                handleExerciseFinished();
+            });
+
+            // Timer controls
+            document.getElementById('btn-add-10s').addEventListener('click', () => {
+                timerSecondsRemaining += 10;
+                timerTotalDuration += 10;
+                updateTimerDisplay();
+            });
+            document.getElementById('btn-skip-rest').addEventListener('click', () => {
+                clearInterval(timerInterval);
+                finishRestTimer();
+            });
+
+            // Finish Summary Button
+            document.getElementById('btn-finish-summary').addEventListener('click', () => {
+                showScreen('screen-preworkout');
+            });
+        }
+
+        // -------------------------------------------------------------
+        // Workout Execution Engine
+        // -------------------------------------------------------------
+        function startWorkoutExecution() {
+            const program = WORKOUT_PROGRAM[currentDayKey];
+            const restEx = parseInt(document.getElementById('input-rest-exercise').value) || 60;
+            const restSet = parseInt(document.getElementById('input-rest-set').value) || 120;
+
+            // Calculate max sets required for this day
+            let maxSets = 1;
+            program.exercises.forEach(ex => {
+                if (ex.sets > maxSets) maxSets = ex.sets;
+            });
+
+            activeWorkoutState = {
+                dayKey: currentDayKey,
+                currentSetIndex: 1,
+                totalSets: maxSets,
+                currentExerciseIndex: 0,
+                startTime: new Date(),
+                restTimeExerciseSec: restEx,
+                restTimeSetSec: restSet
+            };
+
+            renderActiveExercise();
+            showScreen('screen-active-workout');
+        }
+
+        function renderActiveExercise() {
+            const program = WORKOUT_PROGRAM[activeWorkoutState.dayKey];
+            const currentEx = program.exercises[activeWorkoutState.currentExerciseIndex];
+
+            document.getElementById('active-current-set').innerText = activeWorkoutState.currentSetIndex;
+            document.getElementById('active-total-sets').innerText = activeWorkoutState.totalSets;
+            document.getElementById('active-current-ex-num').innerText = activeWorkoutState.currentExerciseIndex + 1;
+            document.getElementById('active-total-ex-num').innerText = program.exercises.length;
+
+            // Update Progress Bar
+            const totalSteps = activeWorkoutState.totalSets * program.exercises.length;
+            const currentStep = ((activeWorkoutState.currentSetIndex - 1) * program.exercises.length) + activeWorkoutState.currentExerciseIndex + 1;
+            const pct = Math.round((currentStep / totalSteps) * 100);
+            document.getElementById('workout-progress-bar').style.width = `${pct}%`;
+
+            document.getElementById('ex-target-muscle').innerText = currentEx.muscle;
+            document.getElementById('ex-reps-count').innerText = `${currentEx.sets} เซต × ${currentEx.reps}`;
+            document.getElementById('ex-name').innerText = currentEx.name;
+
+            const ul = document.getElementById('ex-instructions');
+            ul.innerHTML = '';
+            currentEx.steps.forEach(step => {
+                const li = document.createElement('li');
+                li.className = "flex items-start space-x-2";
+                li.innerHTML = `<span class="text-orange-400 mt-0.5">•</span><span>${step}</span>`;
+                ul.appendChild(li);
+            });
+
+            lucide.createIcons();
+        }
+
+        function handleExerciseFinished() {
+            const program = WORKOUT_PROGRAM[activeWorkoutState.dayKey];
+            const isLastExerciseInSet = (activeWorkoutState.currentExerciseIndex === program.exercises.length - 1);
+            const isLastSet = (activeWorkoutState.currentSetIndex === activeWorkoutState.totalSets);
+
+            if (!isLastExerciseInSet) {
+                // Next Exercise in the same set -> Rest between exercises
+                const nextEx = program.exercises[activeWorkoutState.currentExerciseIndex + 1];
+                startRestTimer(
+                    activeWorkoutState.restTimeExerciseSec,
+                    'เวลาพักระหว่างท่า',
+                    `ท่าถัดไป: ${nextEx.name}`,
+                    () => {
+                        activeWorkoutState.currentExerciseIndex++;
+                        renderActiveExercise();
+                        showScreen('screen-active-workout');
+                    }
+                );
+            } else {
+                // Last exercise in current set
+                if (!isLastSet) {
+                    // Next Set -> Rest between sets
+                    const firstEx = program.exercises[0];
+                    startRestTimer(
+                        activeWorkoutState.restTimeSetSec,
+                        'เวลาพักระหว่างเซต (พักใหญ่)',
+                        `เซตที่ ${activeWorkoutState.currentSetIndex + 1} เริ่มด้วย: ${firstEx.name}`,
+                        () => {
+                            activeWorkoutState.currentSetIndex++;
+                            activeWorkoutState.currentExerciseIndex = 0;
+                            renderActiveExercise();
+                            showScreen('screen-active-workout');
+                        }
+                    );
+                } else {
+                    // Workout Completed!
+                    completeWorkout();
+                }
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Rest Timer System
+        // -------------------------------------------------------------
+        let onTimerCompleteCallback = null;
+
+        function startRestTimer(durationSec, labelText, nextUpText, onComplete) {
+            showScreen('screen-rest-timer');
+            document.getElementById('rest-type-label').innerText = labelText;
+            document.getElementById('rest-next-up').innerText = nextUpText;
+
+            timerSecondsRemaining = durationSec;
+            timerTotalDuration = durationSec;
+            onTimerCompleteCallback = onComplete;
+
+            updateTimerDisplay();
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timerSecondsRemaining--;
+                updateTimerDisplay();
+
+                if (timerSecondsRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    finishRestTimer();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timer-seconds').innerText = timerSecondsRemaining;
+            const circle = document.getElementById('timer-progress-circle');
+            const circumference = 527; // 2 * PI * r (r=84)
+            const offset = circumference - (timerSecondsRemaining / timerTotalDuration) * circumference;
+            circle.style.strokeDashoffset = Math.max(0, offset);
+        }
+
+        function finishRestTimer() {
+            playBeepSound(880, 0.4);
+            triggerVibration();
+            setTimeout(() => playBeepSound(1174, 0.6), 400);
+
+            if (onTimerCompleteCallback) {
+                onTimerCompleteCallback();
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Workout Completion & Sheets Sync
+        // -------------------------------------------------------------
+        function completeWorkout() {
+            const endTime = new Date();
+            const elapsedMinutes = Math.max(1, Math.round((endTime - activeWorkoutState.startTime) / 60000));
+            const program = WORKOUT_PROGRAM[activeWorkoutState.dayKey];
+            const totalSetsPlayed = activeWorkoutState.totalSets * program.exercises.length;
+
+            document.getElementById('sum-total-time').innerText = `${elapsedMinutes} นาที`;
+            document.getElementById('sum-total-sets').innerText = `${totalSetsPlayed} เซต`;
+
+            // Increment local stats
+            let completed = parseInt(localStorage.getItem('workout_completed_days') || '0');
+            completed++;
+            localStorage.setItem('workout_completed_days', completed.toString());
+            renderStats();
+
+            showScreen('screen-completed');
+
+            // Send payload to Google Sheets
+            sendDataToGoogleSheets('WORKOUT_COMPLETE', {
+                day: activeWorkoutState.dayKey,
+                dayTitle: program.title,
+                durationMin: elapsedMinutes,
+                totalSets: totalSetsPlayed
+            });
+        }
+
+        function logRestDayToSheet() {
+            const program = WORKOUT_PROGRAM[currentDayKey];
+            showToast('บันทึกวันพักผ่อนเรียบร้อยแล้ว! ฟื้นฟูกล้ามเนื้อให้เต็มที่', 'success');
+
+            sendDataToGoogleSheets('REST_DAY', {
+                day: currentDayKey,
+                dayTitle: program.title,
+                reason: 'วันพักตามตารางประจำสัปดาห์'
+            });
+        }
+
+        function sendDataToGoogleSheets(actionType, data) {
+            const gasUrl = localStorage.getItem('workout_gas_url');
+            const syncStatusBox = document.getElementById('sync-status-box');
+            const syncStatusText = document.getElementById('sync-status-text');
+
+            if (!gasUrl) {
+                if (syncStatusBox) {
+                    syncStatusBox.innerHTML = `<span class="text-amber-400">ยังไม่ได้ใส่ Google Apps Script URL (บันทึกในเครื่องเท่านั้น)</span>`;
+                }
+                return;
+            }
+
+            if (syncStatusText) {
+                syncStatusText.innerText = "กำลังบันทึกข้อมูลไปยัง Google Sheets...";
+            }
+
+            const payload = {
+                action: actionType,
+                timestamp: new Date().toISOString(),
+                ...data
+            };
+
+            fetch(gasUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                if (syncStatusBox) {
+                    syncStatusBox.innerHTML = `<span class="text-emerald-400 font-semibold flex items-center justify-center space-x-1"><i data-lucide="check" class="w-4 h-4"></i><span>บันทึกไปยัง Google Sheets สำเร็จแล้ว!</span></span>`;
+                    lucide.createIcons();
+                }
+            }).catch(err => {
+                console.error(err);
+                if (syncStatusBox) {
+                    syncStatusBox.innerHTML = `<span class="text-rose-400">เกิดข้อผิดพลาดในการส่งข้อมูลไปยัง Sheets</span>`;
+                }
+            });
+        }
+
+        // -------------------------------------------------------------
+        // Notification & Web Push System
+        // -------------------------------------------------------------
+        function setupNotificationPermission() {
+            if (!("Notification" in window)) {
+                showToast("เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน Push Notification", "error");
+                return;
+            }
+
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    document.getElementById('notify-badge').classList.remove('hidden');
+                    showToast("เปิดการแจ้งเตือนเรียบร้อยแล้ว! ระบบจะแจ้งเตือนเมื่อถึงเวลาออกกำลังกาย", "success");
+                    sendNotificationNow("ตั้งค่าการแจ้งเตือนสำเร็จ", "Workout Pro พร้อมแจ้งเตือนตารางออกกำลังกายของคุณแล้ว!");
+                } else {
+                    showToast("การแจ้งเตือนถูกปฏิเสธ หากต้องการเปิดกรุณาอนุญาตในการตั้งค่าเบราว์เซอร์", "warning");
+                }
+            });
+        }
+
+        function sendNotificationNow(title, body) {
+            if (Notification.permission === "granted") {
+                new Notification(title, {
+                    body: body,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/2548/2548537.png',
+                    tag: 'workout-reminder'
+                });
+            }
+        }
+
+        function checkScheduledNotification() {
+            setInterval(() => {
+                const notifyTime = localStorage.getItem('workout_notify_time') || '17:00';
+                const now = new Date();
+                const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                const lastNotified = localStorage.getItem('workout_last_notified_date');
+                const todayStr = now.toDateString();
+
+                if (currentTimeStr === notifyTime && lastNotified !== todayStr) {
+                    localStorage.setItem('workout_last_notified_date', todayStr);
+                    const dayProgram = WORKOUT_PROGRAM[currentDayKey];
+                    
+                    sendNotificationNow(
+                        `ได้เวลาออกกำลังกายแล้ว! (${dayProgram.title})`,
+                        `คลิกเพื่อเข้าสู่แอปและเริ่มฝึกตามตารางของวันนี้`
+                    );
+                }
+            }, 30000);
+        }
+    </script>
+</body>
+</html>
