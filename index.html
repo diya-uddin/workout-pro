@@ -981,7 +981,20 @@
         };
 
         // Active Program state with fallback to custom or default
-        let WORKOUT_PROGRAM = JSON.parse(localStorage.getItem('workout_custom_program')) || JSON.parse(JSON.stringify(DEFAULT_WORKOUT_PROGRAM));
+        // Robust loader for WORKOUT_PROGRAM with deep safety fallback
+let WORKOUT_PROGRAM = JSON.parse(JSON.stringify(DEFAULT_WORKOUT_PROGRAM));
+try {
+    const saved = JSON.parse(localStorage.getItem('workout_custom_program'));
+    if (saved && typeof saved === 'object') {
+        for (let day = 1; day <= 7; day++) {
+            if (saved[day] && Array.isArray(saved[day].exercises)) {
+                WORKOUT_PROGRAM[day] = saved[day];
+            }
+        }
+    }
+} catch (e) {
+    console.error('Error loading custom workout program:', e);
+}
 
         // State Controllers
         let currentDayKey = 1;
@@ -1198,7 +1211,7 @@
             // Start workout
             document.getElementById('btn-start-workout').addEventListener('click', () => {
                 const program = WORKOUT_PROGRAM[currentDayKey];
-                if (program.isRest || program.exercises.length === 0) {
+                if (!program || program.isRest || !program.exercises || program.exercises.length === 0) {
                     logRestDayToSheet();
                 } else {
                     startWorkoutExecution();
@@ -1308,63 +1321,98 @@
         // Workout Execution Engine
         // -------------------------------------------------------------
         function startWorkoutExecution() {
-            const program = WORKOUT_PROGRAM[currentDayKey];
-            const userSets = parseInt(document.getElementById('input-total-sets').value) || 3;
-            const restEx = parseInt(document.getElementById('input-rest-exercise').value) || 60;
-            const restSet = parseInt(document.getElementById('input-rest-set').value) || 120;
+            try {
+                const program = WORKOUT_PROGRAM[currentDayKey];
+                if (!program || !program.exercises || program.exercises.length === 0) {
+                    showToast('ไม่มีรายการท่าสำหรับออกกำลังกายในวันนี้', 'warning');
+                    return;
+                }
 
-            activeWorkoutState = {
-                dayKey: currentDayKey,
-                sessionTime: selectedSessionTime,
-                currentSetIndex: 1,
-                totalSets: userSets,
-                currentExerciseIndex: 0,
-                startTime: new Date(),
-                restTimeExerciseSec: restEx,
-                restTimeSetSec: restSet
-            };
+                const userSets = parseInt(document.getElementById('input-total-sets')?.value) || 3;
+                const restEx = parseInt(document.getElementById('input-rest-exercise')?.value) || 60;
+                const restSet = parseInt(document.getElementById('input-rest-set')?.value) || 120;
 
-            renderActiveExercise();
-            showScreen('screen-active-workout');
+                activeWorkoutState = {
+                    dayKey: currentDayKey,
+                    sessionTime: selectedSessionTime || "MORNING",
+                    currentSetIndex: 1,
+                    totalSets: userSets,
+                    currentExerciseIndex: 0,
+                    startTime: new Date(),
+                    restTimeExerciseSec: restEx,
+                    restTimeSetSec: restSet
+                };
+
+                renderActiveExercise();
+                showScreen('screen-active-workout');
+            } catch (err) {
+                console.error('Error in startWorkoutExecution:', err);
+                showToast('เกิดข้อผิดพลาดในการเริ่มออกกำลังกาย: ' + err.message, 'error');
+            }
         }
 
         function renderActiveExercise() {
-            const program = WORKOUT_PROGRAM[activeWorkoutState.dayKey];
-            const currentEx = program.exercises[activeWorkoutState.currentExerciseIndex];
+            try {
+                const program = WORKOUT_PROGRAM[activeWorkoutState.dayKey];
+                if (!program || !program.exercises || !program.exercises[activeWorkoutState.currentExerciseIndex]) {
+                    showToast('ไม่พบข้อมูลท่าฝึก', 'error');
+                    return;
+                }
 
-            document.getElementById('active-current-set').innerText = activeWorkoutState.currentSetIndex;
-            document.getElementById('active-total-sets').innerText = activeWorkoutState.totalSets;
-            document.getElementById('active-current-ex-num').innerText = activeWorkoutState.currentExerciseIndex + 1;
-            document.getElementById('active-total-ex-num').innerText = program.exercises.length;
+                const currentEx = program.exercises[activeWorkoutState.currentExerciseIndex];
 
-            const badge = document.getElementById('active-session-badge');
-            if (activeWorkoutState.sessionTime === "MORNING") {
-                badge.className = "px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium flex items-center space-x-1";
-                badge.innerText = "☀️ เช้า";
-            } else {
-                badge.className = "px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium flex items-center space-x-1";
-                badge.innerText = "🌙 เย็น";
+                const elCurrentSet = document.getElementById('active-current-set');
+                const elTotalSets = document.getElementById('active-total-sets');
+                const elCurrentExNum = document.getElementById('active-current-ex-num');
+                const elTotalExNum = document.getElementById('active-total-ex-num');
+                
+                if (elCurrentSet) elCurrentSet.innerText = activeWorkoutState.currentSetIndex;
+                if (elTotalSets) elTotalSets.innerText = activeWorkoutState.totalSets;
+                if (elCurrentExNum) elCurrentExNum.innerText = activeWorkoutState.currentExerciseIndex + 1;
+                if (elTotalExNum) elTotalExNum.innerText = program.exercises.length;
+
+                const badge = document.getElementById('active-session-badge');
+                if (badge) {
+                    if (activeWorkoutState.sessionTime === "MORNING") {
+                        badge.className = "px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium flex items-center space-x-1";
+                        badge.innerText = "☀️ เช้า";
+                    } else {
+                        badge.className = "px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium flex items-center space-x-1";
+                        badge.innerText = "🌙 เย็น";
+                    }
+                }
+
+                const totalSteps = activeWorkoutState.totalSets * program.exercises.length;
+                const currentStep = ((activeWorkoutState.currentSetIndex - 1) * program.exercises.length) + activeWorkoutState.currentExerciseIndex + 1;
+                const pct = Math.min(100, Math.round((currentStep / totalSteps) * 100));
+                
+                const pBar = document.getElementById('workout-progress-bar');
+                if (pBar) pBar.style.width = pct + '%';
+
+                const elMuscle = document.getElementById('ex-target-muscle');
+                const elReps = document.getElementById('ex-reps-count');
+                const elName = document.getElementById('ex-name');
+                
+                if (elMuscle) elMuscle.innerText = currentEx.muscle || '';
+                if (elReps) elReps.innerText = (currentEx.sets || 3) + ' เซต × ' + (currentEx.reps || '');
+                if (elName) elName.innerText = currentEx.name || '';
+
+                const ul = document.getElementById('ex-instructions');
+                if (ul) {
+                    ul.innerHTML = '';
+                    const stepsList = Array.isArray(currentEx.steps) ? currentEx.steps : [currentEx.steps || ''];
+                    stepsList.forEach(step => {
+                        const li = document.createElement('li');
+                        li.className = "flex items-start space-x-2";
+                        li.innerHTML = '<span class="text-orange-400 mt-0.5">•</span><span>' + step + '</span>';
+                        ul.appendChild(li);
+                    });
+                }
+
+                lucide.createIcons();
+            } catch (err) {
+                console.error('Error in renderActiveExercise:', err);
             }
-
-            const totalSteps = activeWorkoutState.totalSets * program.exercises.length;
-            const currentStep = ((activeWorkoutState.currentSetIndex - 1) * program.exercises.length) + activeWorkoutState.currentExerciseIndex + 1;
-            const pct = Math.round((currentStep / totalSteps) * 100);
-            document.getElementById('workout-progress-bar').style.width = `${pct}%`;
-
-            document.getElementById('ex-target-muscle').innerText = currentEx.muscle;
-            document.getElementById('ex-reps-count').innerText = `${currentEx.sets} เซต × ${currentEx.reps}`;
-            document.getElementById('ex-name').innerText = currentEx.name;
-
-            const ul = document.getElementById('ex-instructions');
-            ul.innerHTML = '';
-            currentEx.steps.forEach(step => {
-                const li = document.createElement('li');
-                li.className = "flex items-start space-x-2";
-                li.innerHTML = `<span class="text-orange-400 mt-0.5">•</span><span>${step}</span>`;
-                ul.appendChild(li);
-            });
-
-            lucide.createIcons();
         }
 
         function handleExerciseFinished() {
